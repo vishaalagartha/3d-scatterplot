@@ -1,3 +1,5 @@
+let date = new Date()
+
 let origin = [480, 300], 
     j = 10, 
     scale = 20, 
@@ -12,6 +14,15 @@ let origin = [480, 300],
     startAngleX = Math.PI/4,
     startAngleZ = 3*Math.PI/4,
     axisRange = 20
+
+let a = new Earth()
+let b = new Venus()
+let c = new Mars()
+let d = new Mercury()
+let e = new Jupiter()
+let f = new Saturn()
+let g = new Uranus()
+let h = new Neptune()
     
 let svg = d3.select('svg')
   .call(d3.drag().on('drag', dragged).on('start', dragStart).on('end', dragEnd)).append('g')
@@ -69,7 +80,7 @@ let draw = (data, delay) => {
       .attr('cy', d => d.projected.y)
       .merge(points)
       .transition().duration(delay)
-      .attr('r', 3)
+      .attr('r', d => d.radius/10000)
       .attr('stroke', d => d3.color(color(d.id)).darker(3))
       .attr('fill', d => color(d.id))
       .attr('opacity', 1)
@@ -77,6 +88,21 @@ let draw = (data, delay) => {
       .attr('cy', d => d.projected.y)
 
   points.exit().remove()
+
+  let names = svg.selectAll(`text.planets`).data(pointData)
+  names.enter()
+       .append('text')
+       .attr('class', `_3d planets`)
+        .attr('dx', '-3em')
+        .merge(names)
+        .each(d => {
+          d.centroid = {x: d.rotated.x, y: d.rotated.y, z: d.rotated.z};
+        })
+        .attr('x', d => d.projected.x)
+        .attr('y', d => d.projected.y)
+        .text(d => d.id)
+        .style('fill', 'red')
+
 
   let scales = svg.selectAll('path.scale').data(scaleData)
 
@@ -136,17 +162,19 @@ init = () => {
 
   axisArrows = [[[axisRange-1, 0.3, 0], [axisRange-1, -0.3, 0], [axisRange, 0, 0]], [[axisRange-1, 0, -0.3,], [axisRange-1, 0, 0.3], [axisRange, 0, 0]], [[-0.3, -axisRange+1, 0], [0.3, -axisRange+1, 0], [0, -axisRange, 0]], [[0, -axisRange+1, -0.3], [0, -axisRange+1, 0.3], [0, -axisRange, 0]], [[-0.3, 0, axisRange-1], [0.3, 0, axisRange-1], [0, 0, axisRange]], [[0, -0.3, axisRange-1], [0, 0.3, axisRange-1], [0, 0, axisRange]]]
 
-  d3.csv('data.csv', data => {
-    data.forEach(d => {
-      scatter.push({x: d.x, y: -d.y, z: d.z, id: `point_(${d.x},${d.y},${d.z})`})
-    })
-    let chart = [
-        point3d(scatter),
-        scale3d([xLine, yLine, zLine]),
-        [arrows3d(axisArrows)]
-    ]
-    draw(chart, 1000)
+
+  planets = [a, b, c, d, e, f, g, h]
+  planets.forEach(p => {
+      position = p.heliocentric_position(date.getFullYear(), date.getMonth()+1, date.getUTCDate(), date.getUTCHours())
+      scatter.push({x: position[0], y: position[1], z: position[2], radius: p.radius(), id: `${p.constructor.name}`})
   })
+  scatter.push({x: 0, y:0, z:0, radius: 432170, id: 'Sun'})
+  let chart = [
+      point3d(scatter),
+      scale3d([xLine, yLine, zLine]),
+      [arrows3d(axisArrows)]
+  ]
+  draw(chart, 1000)
 }
 
 function dragStart(){
@@ -173,5 +201,27 @@ function dragEnd(){
   mouseX = d3.event.x - mx + mouseX
   mouseY = d3.event.y - my + mouseY
 }
+
+function updateData(){
+  let newDate = new Date(date)
+  newDate.setDate(date.getUTCDate()+1)
+  date = new Date(newDate)
+  scatter = []
+  planets.forEach(p => {
+      position = p.heliocentric_position(date.getFullYear(), date.getMonth()+1, date.getUTCDate(), date.getUTCHours())
+      scatter.push({x: position[0], y: position[1], z: position[2], radius: p.radius(), id: `${p.constructor.name}`})
+  })
+  scatter.push({x: 0, y:0, z:0, radius: 432170, id: 'Sun'})
+  let chart = [
+      point3d(scatter),
+      scale3d([xLine, yLine, zLine]),
+      [arrows3d(axisArrows)]
+  ]
+  draw(chart, 1000)
+}
+
+let inter = setInterval(function() {
+                updateData()
+        }, 1000)
 
 init()
