@@ -1,8 +1,9 @@
 let date = new Date()
+let updateInterval = 5
 
 let origin = [480, 300], 
     j = 10, 
-    scale = 20, 
+    scale = 100, 
     scatter = [], 
     xLine = [],
     yLine = [], 
@@ -26,7 +27,30 @@ let h = new Neptune()
     
 let svg = d3.select('svg')
   .call(d3.drag().on('drag', dragged).on('start', dragStart).on('end', dragEnd)).append('g')
-let color  = d3.scaleOrdinal(d3.schemeCategory20)
+
+let color = id => {
+  switch(id) {
+    case 'Sun':
+      return 'DarkOrange'
+    case 'Mercury':
+      return 'Silver'
+    case 'Venus':
+      return 'Sienna'
+    case 'Earth':
+      return 'DarkGreen'
+    case 'Mars':
+      return 'DarkRed'
+    case 'Jupiter':
+      return 'NavajoWhite'
+    case 'Saturn':
+      return 'Tan'
+    case 'Uranus':
+      return 'Cyan'
+    case 'Neptune':
+      return 'DarkBlue'
+  }
+}
+
 let mx, my, mouseX, mouseY
 
 let point3d = d3._3d()
@@ -53,7 +77,6 @@ let arrows3d = d3._3d()
     .scale(scale)
 
 let draw = (data, delay) => {
-
   let axisColor = (shape, i) => {
     if(shape=='arrow') {
       if(i==0 || i==1) return 'blue'
@@ -80,28 +103,28 @@ let draw = (data, delay) => {
       .attr('cy', d => d.projected.y)
       .merge(points)
       .transition().duration(delay)
-      .attr('r', d => d.radius/10000)
+      .attr('r', d => 10)
       .attr('stroke', d => d3.color(color(d.id)).darker(3))
       .attr('fill', d => color(d.id))
       .attr('opacity', 1)
       .attr('cx', d => d.projected.x)
       .attr('cy', d => d.projected.y)
 
-  points.exit().remove()
+  points.on('mouseover', d => {
+    svg.append('text')
+       .attr('class', 'planets')
+       .attr('x', d.projected.x)
+       .attr('y', d.projected.y)
+       .attr('dx', '1em')
+       .attr('dy', '-1em')
+       .text(`${d.id}`)
+  })
 
-  let names = svg.selectAll(`text.planets`).data(pointData)
-  names.enter()
-       .append('text')
-       .attr('class', `_3d planets`)
-        .attr('dx', '-3em')
-        .merge(names)
-        .each(d => {
-          d.centroid = {x: d.rotated.x, y: d.rotated.y, z: d.rotated.z};
-        })
-        .attr('x', d => d.projected.x)
-        .attr('y', d => d.projected.y)
-        .text(d => d.id)
-        .style('fill', 'red')
+  points.on('mouseout', d=> {
+    svg.select('text.planets').remove()
+  })
+
+  points.exit().remove()
 
 
   let scales = svg.selectAll('path.scale').data(scaleData)
@@ -149,7 +172,12 @@ let draw = (data, delay) => {
     triangles.exit().remove()
   })
 
+
+  svg.select('text.date')
+     .text(`${date.getMonth()+1}/${date.getDate()}/${date.getFullYear()} ${date.getHours()}:${(date.getMinutes()<10?'0':'') + date.getMinutes() }`)
+     
   d3.selectAll('._3d').sort(d3._3d().sort)
+
 }
 
 init = () => {
@@ -169,10 +197,19 @@ init = () => {
       scatter.push({x: position[0], y: position[1], z: position[2], radius: p.radius(), id: `${p.constructor.name}`})
   })
   scatter.push({x: 0, y:0, z:0, radius: 432170, id: 'Sun'})
+
+  svg.append('text')
+     .attr('class', 'date')
+     .attr('x', 50) 
+     .attr('y', 50)
+     .text(`${date.getMonth()+1}/${date.getDate()}/${date.getFullYear()} ${date.getHours()}:${date.getMinutes()}`)
+     
+
   let chart = [
       point3d(scatter),
       scale3d([xLine, yLine, zLine]),
-      [arrows3d(axisArrows)]
+      [arrows3d(axisArrows)],
+      date
   ]
   draw(chart, 1000)
 }
@@ -192,7 +229,8 @@ function dragged(){
   let data = [
       point3d.rotateX(alpha + startAngleX).rotateZ(beta + startAngleZ)(scatter),
       scale3d.rotateX(alpha + startAngleX).rotateZ(beta + startAngleZ)([xLine, yLine, zLine]),
-      [arrows3d.rotateX(alpha + startAngleX).rotateZ(beta + startAngleZ)(axisArrows)]
+      [arrows3d.rotateX(alpha + startAngleX).rotateZ(beta + startAngleZ)(axisArrows)],
+      date
   ]
   draw(data, 0)
 }
@@ -201,11 +239,8 @@ function dragEnd(){
   mouseX = d3.event.x - mx + mouseX
   mouseY = d3.event.y - my + mouseY
 }
-
 function updateData(){
-  let newDate = new Date(date)
-  newDate.setDate(date.getUTCDate()+1)
-  date = new Date(newDate)
+  date = new Date(date.getTime() + updateInterval*60*60*1000)
   scatter = []
   planets.forEach(p => {
       position = p.heliocentric_position(date.getFullYear(), date.getMonth()+1, date.getUTCDate(), date.getUTCHours())
@@ -215,13 +250,13 @@ function updateData(){
   let chart = [
       point3d(scatter),
       scale3d([xLine, yLine, zLine]),
-      [arrows3d(axisArrows)]
+      [arrows3d(axisArrows)],
   ]
   draw(chart, 1000)
 }
 
 let inter = setInterval(function() {
                 updateData()
-        }, 1000)
+ }, 1000)
 
 init()
